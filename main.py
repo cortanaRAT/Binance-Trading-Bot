@@ -30,7 +30,7 @@ def webhook():
         sl = float(data.get('stop_loss', 0))
 
         # 1. فتح الصفقة الرئيسية
-        order = client.create_order(
+        order = client.create_test_order(
             symbol=symbol,
             side=SIDE_BUY if side == "BUY" else SIDE_SELL,
             type=ORDER_TYPE_MARKET if entry_type == "MARKET" else ORDER_TYPE_LIMIT,
@@ -43,7 +43,7 @@ def webhook():
         if tp > 0 or sl > 0:
             opposite_side = SIDE_SELL if side == "BUY" else SIDE_BUY
 
-            oco_order = client.create_oco_order(
+            oco_order = client.create_test_order(
                 symbol=symbol,
                 side=opposite_side,
                 quantity=quantity,
