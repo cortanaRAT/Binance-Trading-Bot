@@ -8,7 +8,7 @@ BINANCE_API_KEY = "f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3
 BINANCE_API_SECRET = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
 
 client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=True)
-
+client.API_URL = "https://testnet.binance.vision/api"
 # ========== Flask ==========
 app = Flask(__name__)
 
