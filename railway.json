@@ -1,0 +1,8 @@
+{
+  "build": {
+    "builder": "python"
+  },
+  "start": {
+    "cmd": "gunicorn main:app"
+  }
+}
