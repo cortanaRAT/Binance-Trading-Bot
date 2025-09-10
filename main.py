@@ -3,11 +3,9 @@ from binance.client import Client
 
 app = Flask(__name__)
 
-# API Keys (Testnet)
 API_KEY = "f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543"
 API_SECRET = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
 
-# Client مع testnet=True
 client = Client(API_KEY, API_SECRET, testnet=True)
 
 @app.route("/")
@@ -26,18 +24,18 @@ def webhook():
     if not all([symbol, side]):
         return jsonify({"error": "Missing symbol or side"}), 400
 
-    # السعر الحالي من Binance
+    side = side.upper()
+    if side not in ["BUY", "SELL"]:
+        return jsonify({"error": "Invalid side, must be BUY or SELL"}), 400
+
     price_data = client.futures_symbol_ticker(symbol=symbol)
     current_price = float(price_data['price'])
 
-    # اللوت ثابت
     qty = 0.02
-
-    # تحديد TP و SL بالنقاط
     STOP = 10000
     TAKE = 20000
 
-    if side.upper() == "BUY":
+    if side == "BUY":
         tp_price = current_price + TAKE
         sl_price = current_price - STOP
     else:  # SELL
@@ -53,20 +51,23 @@ def webhook():
             quantity=qty
         )
 
-        # أوامر TP و SL
+        reverse_side = "SELL" if side == "BUY" else "BUY"
+
+        # TP
         tp_order = client.futures_create_order(
             symbol=symbol,
-            side="SELL" if side.upper()=="BUY" else "BUY",
+            side=reverse_side,
             type="LIMIT",
             price=round(tp_price, 2),
             quantity=qty,
             reduceOnly=True,
-            timeInForce="GTC"   # مهم لأوامر LIMIT
+            timeInForce="GTC"
         )
 
+        # SL
         sl_order = client.futures_create_order(
             symbol=symbol,
-            side="SELL" if side.upper()=="BUY" else "BUY",
+            side=reverse_side,
             type="STOP_MARKET",
             stopPrice=round(sl_price, 2),
             quantity=qty,
