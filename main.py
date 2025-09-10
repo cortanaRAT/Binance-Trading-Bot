@@ -4,9 +4,11 @@ import os
 
 app = Flask(__name__)
 
-API_KEY = os.getenv("f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543")
-API_SECRET = os.getenv("f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70")
+# استدعاء الـ API Key و Secret من Environment Variables
+API_KEY = os.getenv("BINANCE_API_KEY")
+API_SECRET = os.getenv("BINANCE_API_SECRET")
 
+# Client مع testnet=True
 client = Client(API_KEY, API_SECRET, testnet=True)
 
 @app.route("/")
@@ -17,19 +19,29 @@ def home():
 def webhook():
     data = request.json
     if not data:
-        return jsonify({"error": "No JSON data"}), 400
+        return jsonify({"error": "No JSON data received"}), 400
+
+    # التأكد من أن البيانات موجودة
+    symbol = data.get("symbol")
+    side = data.get("side")
+    qty = data.get("qty")
+
+    if not all([symbol, side, qty]):
+        return jsonify({"error": "Missing symbol, side, or qty"}), 400
 
     try:
-        symbol = data["symbol"]
-        side = data["side"]
-        qty = data["qty"]
-
+        # إنشاء أوردر ماركت في Testnet
         order = client.futures_create_order(
             symbol=symbol,
             side=side,
             type="MARKET",
-            quantity=qty
+            quantity=float(qty)
         )
         return jsonify(order)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# مهم: تشغيل Flask على 0.0.0.0 و port من البيئة
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
