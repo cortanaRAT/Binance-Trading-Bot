@@ -6,7 +6,6 @@ app = Flask(__name__)
 
 # استدعاء الـ API Key و Secret من Environment Variables
 API_KEY = "f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543"
-")
 API_SECRET = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
 
 # Client مع testnet=True
