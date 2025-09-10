@@ -21,22 +21,61 @@ def webhook():
 
     symbol = data.get("symbol")
     side = data.get("side")
-    qty = data.get("qty")
 
-    if not all([symbol, side, qty]):
-        return jsonify({"error": "Missing symbol, side, or qty"}), 400
+    if not all([symbol, side]):
+        return jsonify({"error": "Missing symbol or side"}), 400
+
+    # السعر الحالي من Binance
+    price_data = client.futures_symbol_ticker(symbol=symbol)
+    current_price = float(price_data['price'])
+
+    # اللوت ثابت
+    qty = 0.02
+
+    # تحديد TP و SL بالنقاط
+    STOP = 10000
+    TAKE = 20000
+
+    if side.upper() == "BUY":
+        tp_price = current_price + TAKE
+        sl_price = current_price - STOP
+    else:  # SELL
+        tp_price = current_price - TAKE
+        sl_price = current_price + STOP
 
     try:
+        # فتح الصفقة الرئيسية
         order = client.futures_create_order(
             symbol=symbol,
             side=side,
             type="MARKET",
-            quantity=float(qty)
+            quantity=qty
         )
-        return jsonify(order)
+
+        # أوامر TP و SL
+        tp_order = client.futures_create_order(
+            symbol=symbol,
+            side="SELL" if side.upper()=="BUY" else "BUY",
+            type="LIMIT",
+            price=round(tp_price, 2),
+            quantity=qty,
+            reduceOnly=True
+        )
+
+        sl_order = client.futures_create_order(
+            symbol=symbol,
+            side="SELL" if side.upper()=="BUY" else "BUY",
+            type="STOP_MARKET",
+            stopPrice=round(sl_price, 2),
+            quantity=qty,
+            reduceOnly=True
+        )
+
+        return jsonify({
+            "order": order,
+            "take_profit": tp_order,
+            "stop_loss": sl_order
+        })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
