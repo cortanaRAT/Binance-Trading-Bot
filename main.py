@@ -29,6 +29,22 @@ def webhook():
         # نحدد positionSide بناءً على الـ side
         positionSide = "LONG" if side == "BUY" else "SHORT"
 
+        # نجيب سعر السوق الحالي
+        price_data = client.futures_symbol_ticker(symbol=symbol)
+        current_price = float(price_data["price"])
+
+        # تحقق من صحة TP/SL
+        if positionSide == "LONG":
+            if tp and tp <= current_price:
+                return jsonify({"error": f"TP ({tp}) لازم يكون أعلى من سعر السوق {current_price}"}), 400
+            if sl and sl >= current_price:
+                return jsonify({"error": f"SL ({sl}) لازم يكون أقل من سعر السوق {current_price}"}), 400
+        else:  # SHORT
+            if tp and tp >= current_price:
+                return jsonify({"error": f"TP ({tp}) لازم يكون أقل من سعر السوق {current_price}"}), 400
+            if sl and sl <= current_price:
+                return jsonify({"error": f"SL ({sl}) لازم يكون أعلى من سعر السوق {current_price}"}), 400
+
         # 1️⃣ أمر الدخول
         entry = client.futures_create_order(
             symbol=symbol,
