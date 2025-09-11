@@ -11,7 +11,7 @@ client = Client(API_KEY, API_SECRET, testnet=True)
 
 @app.route("/")
 def home():
-    return "Binance Webhook is running 🚀"
+    return "Binance Hedge Webhook is running 🚀"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -20,16 +20,52 @@ def webhook():
         return jsonify({"error": "No JSON data"}), 400
 
     try:
-        symbol = data["symbol"]
-        side = data["side"]
-        qty = data["qty"]
+        symbol = data["symbol"]           # مثل: "BTCUSDT"
+        side = data["side"].upper()       # "BUY" or "SELL"
+        qty = float(data["qty"])          # الكمية
+        positionSide = data["positionSide"].upper()  # "LONG" أو "SHORT"
+        tp = float(data.get("tp", 0))     # سعر التيك بروفت
+        sl = float(data.get("sl", 0))     # سعر الستوب لوز
 
-        order = client.futures_create_order(
+        # 1️⃣ أمر الدخول
+        entry = client.futures_create_order(
             symbol=symbol,
             side=side,
             type="MARKET",
-            quantity=qty
+            quantity=qty,
+            positionSide=positionSide
         )
-        return jsonify(order)
+
+        # 2️⃣ أمر Take Profit (اختياري)
+        tp_order, sl_order = None, None
+        if tp > 0:
+            tp_order = client.futures_create_order(
+                symbol=symbol,
+                side="SELL" if positionSide == "LONG" else "BUY",
+                type="TAKE_PROFIT_MARKET",
+                stopPrice=tp,
+                closePosition=True,       # يغلق الصفقة بالكامل
+                reduceOnly=True,
+                positionSide=positionSide
+            )
+
+        # 3️⃣ أمر Stop Loss (اختياري)
+        if sl > 0:
+            sl_order = client.futures_create_order(
+                symbol=symbol,
+                side="SELL" if positionSide == "LONG" else "BUY",
+                type="STOP_MARKET",
+                stopPrice=sl,
+                closePosition=True,
+                reduceOnly=True,
+                positionSide=positionSide
+            )
+
+        return jsonify({
+            "entry": entry,
+            "take_profit": tp_order,
+            "stop_loss": sl_order
+        })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
