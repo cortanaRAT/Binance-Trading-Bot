@@ -9,7 +9,7 @@ app = Flask(__name__)
 API_KEY = "f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543"
 SECRET_KEY = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
 
-client = Client(API_KEY, SECRET_KEY, testnet=False)
+client = Client(API_KEY, SECRET_KEY, testnet=true)
 
 # ✅ فحص إذا الحساب Hedge Mode أو One-Way
 def get_position_mode():
