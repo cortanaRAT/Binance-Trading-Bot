@@ -23,8 +23,8 @@ def webhook():
         symbol = data["symbol"]           # مثل: "BTCUSDT"
         side = data["side"].upper()       # "BUY" or "SELL"
         qty = float(data["qty"])          # الكمية
-        tp = float(data.get("tp", 0))     # سعر التيك بروفت
-        sl = float(data.get("sl", 0))     # سعر الستوب لوز
+        tp_points = float(data.get("tp_points", 0))  # عدد النقاط للتيك بروفت
+        sl_points = float(data.get("sl_points", 0))  # عدد النقاط للستوب لوز
 
         # نحدد positionSide بناءً على الـ side
         positionSide = "LONG" if side == "BUY" else "SHORT"
@@ -33,17 +33,14 @@ def webhook():
         price_data = client.futures_symbol_ticker(symbol=symbol)
         current_price = float(price_data["price"])
 
-        # تحقق من صحة TP/SL
+        # نحسب أسعار TP/SL
+        tp_price, sl_price = None, None
         if positionSide == "LONG":
-            if tp and tp <= current_price:
-                return jsonify({"error": f"TP ({tp}) لازم يكون أعلى من سعر السوق {current_price}"}), 400
-            if sl and sl >= current_price:
-                return jsonify({"error": f"SL ({sl}) لازم يكون أقل من سعر السوق {current_price}"}), 400
+            tp_price = current_price + tp_points if tp_points > 0 else None
+            sl_price = current_price - sl_points if sl_points > 0 else None
         else:  # SHORT
-            if tp and tp >= current_price:
-                return jsonify({"error": f"TP ({tp}) لازم يكون أقل من سعر السوق {current_price}"}), 400
-            if sl and sl <= current_price:
-                return jsonify({"error": f"SL ({sl}) لازم يكون أعلى من سعر السوق {current_price}"}), 400
+            tp_price = current_price - tp_points if tp_points > 0 else None
+            sl_price = current_price + sl_points if sl_points > 0 else None
 
         # 1️⃣ أمر الدخول
         entry = client.futures_create_order(
@@ -56,24 +53,24 @@ def webhook():
 
         tp_order, sl_order = None, None
 
-        # 2️⃣ أمر Take Profit (اختياري)
-        if tp > 0:
+        # 2️⃣ أمر Take Profit
+        if tp_price:
             tp_order = client.futures_create_order(
                 symbol=symbol,
                 side="SELL" if positionSide == "LONG" else "BUY",
                 type="TAKE_PROFIT_MARKET",
-                stopPrice=tp,
+                stopPrice=round(tp_price, 2),
                 closePosition=True,
                 positionSide=positionSide
             )
 
-        # 3️⃣ أمر Stop Loss (اختياري)
-        if sl > 0:
+        # 3️⃣ أمر Stop Loss
+        if sl_price:
             sl_order = client.futures_create_order(
                 symbol=symbol,
                 side="SELL" if positionSide == "LONG" else "BUY",
                 type="STOP_MARKET",
-                stopPrice=sl,
+                stopPrice=round(sl_price, 2),
                 closePosition=True,
                 positionSide=positionSide
             )
@@ -81,7 +78,10 @@ def webhook():
         return jsonify({
             "entry": entry,
             "take_profit": tp_order,
-            "stop_loss": sl_order
+            "stop_loss": sl_order,
+            "current_price": current_price,
+            "tp_price": tp_price,
+            "sl_price": sl_price
         })
 
     except Exception as e:
