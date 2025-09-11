@@ -1,67 +1,63 @@
+import os
 from flask import Flask, request, jsonify
 from binance.client import Client
 from binance.enums import *
-import json
 
-# ========== Binance API ==========
-BINANCE_API_KEY = "f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543"
-BINANCE_API_SECRET = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
-
-client = Client(BINANCE_API_KEY, BINANCE_API_SECRET,tld='com' ,testnet=True)
-client.API_URL = "https://testnet.binance.vision/api"
-# ========== Flask ==========
 app = Flask(__name__)
 
-@app.route('/')
+# المفاتيح من متغيرات البيئة (Railway Variables)
+API_KEY ="f9cdfdd0f2b13fb8bb89ef5b9edf93281b2fef3aa3e8ff16d48817b4f59c3543"
+SECRET_KEY = "f7b69a165a2ba1ea72727cf96c908863eafa1bff3673dd6752cc193e20734f70"
+
+# mode = testnet or real
+USE_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() == "true"
+
+client = Client(API_KEY, SECRET_KEY, testnet=USE_TESTNET)
+
+@app.route("/", methods=["GET"])
 def home():
-    return "🚀 Webhook Server is Running!"
+    return "Flask Binance Client — POST JSON to /send_order"
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
+@app.route("/send_order", methods=["POST"])
+def send_order():
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"error": "Expected JSON body"}), 400
+
+    symbol = data.get("symbol")
+    side = data.get("side", "BUY")
+    position_side = data.get("positionSide", "BOTH")
+    qty = data.get("qty", "0.01")
+    price = data.get("price", "market")
+    reduce_only = data.get("reduceOnly", False)
+
     try:
-        data = json.loads(request.data)
-        print("📩 Received Signal:", data)
-
-        symbol = data['symbol']       # مثال: "BTCUSDT"
-        side = data['side'].upper()   # "BUY" or "SELL"
-        quantity = float(data['quantity'])
-        entry_type = data.get('entry_type', "MARKET").upper()
-        tp = float(data.get('take_profit', 0))
-        sl = float(data.get('stop_loss', 0))
-
-        # 1. فتح الصفقة الرئيسية
-        order = client.create_test_order(
-            symbol=symbol,
-            side=SIDE_BUY if side == "BUY" else SIDE_SELL,
-            type=ORDER_TYPE_MARKET if entry_type == "MARKET" else ORDER_TYPE_LIMIT,
-            quantity=quantity
-        )
-
-        print("✅ Main Order Executed:", order)
-
-        # 2. إضافة Take Profit و Stop Loss
-        if tp > 0 or sl > 0:
-            opposite_side = SIDE_SELL if side == "BUY" else SIDE_BUY
-
-            oco_order = client.create_test_order(
+        if str(price).lower() == "market":
+            order = client.futures_create_order(
                 symbol=symbol,
-                side=opposite_side,
-                quantity=quantity,
-                price=str(tp),                # Take Profit
-                stopPrice=str(sl),            # Stop Loss
-                stopLimitPrice=str(sl),       # نفس سعر الستوب
-                stopLimitTimeInForce=TIME_IN_FORCE_GTC
+                side=SIDE_BUY if side.upper() == "BUY" else SIDE_SELL,
+                type=FUTURE_ORDER_TYPE_MARKET,
+                positionSide=position_side,
+                quantity=qty,
+                reduceOnly=reduce_only
+            )
+        else:
+            order = client.futures_create_order(
+                symbol=symbol,
+                side=SIDE_BUY if side.upper() == "BUY" else SIDE_SELL,
+                type=FUTURE_ORDER_TYPE_LIMIT,
+                timeInForce=TIME_IN_FORCE_GTC,
+                positionSide=position_side,
+                quantity=qty,
+                price=price,
+                reduceOnly=reduce_only
             )
 
-            print("🎯 OCO Order Created (TP/SL):", oco_order)
-            return jsonify({"status": "success", "main_order": order, "oco_order": oco_order})
-
-        return jsonify({"status": "success", "main_order": order})
+        return jsonify(order)
 
     except Exception as e:
-        print("❌ Error:", e)
-        return jsonify({"status": "error", "message": str(e)}), 400
+        return jsonify({"error": str(e)}), 400
 
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
