@@ -23,9 +23,11 @@ def webhook():
         symbol = data["symbol"]           # مثل: "BTCUSDT"
         side = data["side"].upper()       # "BUY" or "SELL"
         qty = float(data["qty"])          # الكمية
-        positionSide = data["positionSide"].upper()  # "LONG" أو "SHORT"
         tp = float(data.get("tp", 0))     # سعر التيك بروفت
         sl = float(data.get("sl", 0))     # سعر الستوب لوز
+
+        # نحدد positionSide بناءً على الـ side
+        positionSide = "LONG" if side == "BUY" else "SHORT"
 
         # 1️⃣ أمر الدخول
         entry = client.futures_create_order(
@@ -36,16 +38,16 @@ def webhook():
             positionSide=positionSide
         )
 
-        # 2️⃣ أمر Take Profit (اختياري)
         tp_order, sl_order = None, None
+
+        # 2️⃣ أمر Take Profit (اختياري)
         if tp > 0:
             tp_order = client.futures_create_order(
                 symbol=symbol,
                 side="SELL" if positionSide == "LONG" else "BUY",
                 type="TAKE_PROFIT_MARKET",
                 stopPrice=tp,
-                closePosition=True,       # يغلق الصفقة بالكامل
-                reduceOnly=True,
+                closePosition=True,
                 positionSide=positionSide
             )
 
@@ -57,7 +59,6 @@ def webhook():
                 type="STOP_MARKET",
                 stopPrice=sl,
                 closePosition=True,
-                reduceOnly=True,
                 positionSide=positionSide
             )
 
