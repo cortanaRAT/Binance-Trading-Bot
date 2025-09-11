@@ -34,13 +34,8 @@ def webhook():
         current_price = float(price_data["price"])
 
         # نحسب أسعار TP/SL
-        tp_price, sl_price = None, None
-        if positionSide == "LONG":
-            tp_price = current_price + tp_points if tp_points > 0 else None
-            sl_price = current_price - sl_points if sl_points > 0 else None
-        else:  # SHORT
-            tp_price = current_price - tp_points if tp_points > 0 else None
-            sl_price = current_price + sl_points if sl_points > 0 else None
+        tp_price, sl_price = tp_points, sl_points
+
 
         # 1️⃣ أمر الدخول
         entry = client.futures_create_order(
